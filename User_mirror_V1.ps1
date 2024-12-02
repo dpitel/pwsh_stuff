@@ -1,13 +1,17 @@
-# Connect to AzureAD
-# Connect-AzureAD -TenantId <Tenant-ID>
-# Connect-ExchangeOnline
+# Reading stdin to grab appropriate TenantId and domain in order to connect to the EXO and AAD modules
+$TntID = Read-Host "Please enter the tenant ID of the organization you're attempting to connect to:"
+$DelOrg = Read-Host "Please enter the domain of the organization that you're attempting to connect to: " 
+
+# Connecting to AAD/EXO modules
+Connect-AzureAD -TenantId $TntID
+Connect-ExchangeOnline -DelegatedOrganization $DelOrg
 
 
 # Input source and target users
 $SourceUser = Read-Host "Enter the email/UPN of the user you'd like to mirror from"
 $TargetUser = Read-Host "Enter the email/UPN of the user who you'd like to add new group memberships to"
 
-# Retrieve ObjectId for the target user
+# Grabbing ObjectId for the target user- we need the ObjectId b/c AAD is only able to use the ObjectId for mirroring, while EXO using the DisplayName
 $TargetUserObject = Get-AzureADUser -Filter "UserPrincipalName eq '$TargetUser'"
 if (-not $TargetUserObject) {
     Write-Error "Target user not found in Azure AD."
@@ -15,10 +19,10 @@ if (-not $TargetUserObject) {
 }
 $TargetUserObjectId = $TargetUserObject.ObjectId
 
-# Get groups for the source user
+# Getting groups for the source user
 $SourceGroups = Get-AzureADUserMembership -ObjectId $SourceUser | Where-Object ObjectType -eq 'Group'
 
-# Process group membership for Entra/AAD groups
+# Processing/mirring group membership for Entra/AAD groups
 foreach ($Group in $SourceGroups) {
     $GroupId = $Group.ObjectId
     $GroupName = $Group.DisplayName
@@ -41,26 +45,19 @@ foreach ($Group in $SourceGroups) {
 
 Write-Host "Processing completed for Entra/AAD groups- commencing for Exchange groups..."
 
+# Grabbing all non-security enabled groups from EXO and stuffing them into variable
 $DistributionGroups = Get-DistributionGroup -ResultSize Unlimited | Where-Object {!$_.GroupType.contains("SecurityEnabled")}
 
+# Grabbing all groups to mirror from the source user
 $GroupsToMirror = $DistributionGroups | Where-Object { (Get-DistributionGroupMember $_.Name -ResultSize Unlimited | ForEach-Object {$_.PrimarySMTPAddress}) -Contains $SourceUser} | select DisplayName, PrimarySMTPAddress
 
-Write-Host "`nThese are the distribution lists that $SourceUser is a member of:`n"
-$GroupsToMirror | Format-Table -AutoSize
-[void][System.Console]::Out.Flush() # Force console flush for timing of writing to stdout
-
-Start-Sleep 1 # Might remove this later
-
-$Confirm = Read-Host "Are you sure you want to proceed w/the mirroring (Y/N)?"
-if ($Confirm -eq 'Y') {
-    foreach ($Group in $GroupsToMirror) {
-    Write-Output "Adding $TargetUser to group $($Group.DisplayName)"
-    Add-DistributionGroupMember -Identity $Group.DisplayName -Member $TargetUser
-    }
-    Write-Output "User $TargetUser has been added to all the requested distribution groups"
-
-} else {
-    Write-Output "Mirroring Cancelled"
+# Proccessing/mirroring all EXO groups from source to target user
+foreach ($Group in $GroupsToMirror) {
+Write-Output "Adding $TargetUser to group $($Group.DisplayName)"
+Add-DistributionGroupMember -Identity $Group.DisplayName -Member $TargetUser
 }
+
+# Messages to user to stdout
+Write-Output "User $TargetUser has been added to all the requested distribution groups"
 
 Write-Host "Processing completed for all groups- have a nice day!"
