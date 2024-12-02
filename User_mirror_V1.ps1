@@ -1,6 +1,6 @@
 # Reading stdin to grab appropriate TenantId and domain in order to connect to the EXO and AAD modules
-$TntID = Read-Host "Please enter the tenant ID of the organization you're attempting to connect to:"
-$DelOrg = Read-Host "Please enter the domain of the organization that you're attempting to connect to: " 
+$TntID = Read-Host "Please enter the tenant ID of the organization you're attempting to connect to"
+$DelOrg = Read-Host "Please enter the domain of the organization that you're attempting to connect to" 
 
 # Connecting to AAD/EXO modules
 Connect-AzureAD -TenantId $TntID
@@ -58,6 +58,6 @@ Add-DistributionGroupMember -Identity $Group.DisplayName -Member $TargetUser
 }
 
 # Messages to user to stdout
-Write-Output "User $TargetUser has been added to all the requested distribution groups"
+Write-Output "$TargetUser has been added to all the requested distribution groups"
 
 Write-Host "Processing completed for all groups- have a nice day!"
