@@ -1,0 +1,115 @@
+Powershell_OneLiners
+
+Google IP for pinging:
+142.250.190.46
+
+Show AVD/RDP sessions users:
+qwinsta
+
+PS- get last windows updates:
+Get-HotFix | Sort-Object -Property InstalledOn -Descending
+
+
+Find local domain:
+systeminfo.exe | findstr.exe "Domain"
+
+Intune stuff:
+dsregcmd /status and more- CMD and PWSH 
+
+DNS stuff:
+ipconfig /displaydns
+
+Checking AD/AAD Join status:
+dsregcmd /status
+
+Suspend-BitLocker -MountPoint "C:" -RebootCount 3
+
+Start-ADSyncSyncCycle -PolicyType Delta
+
+repadmin /syncall /APeD
+
+Checking forwarding for one or all users:
+Get-Mailbox -Identity *username* | select UserPrincipalName,ForwardingSmtpAddress,DeliverToMailboxAndForward
+Get-Mailbox -ResultSize Unlimited -RecipientTypeDetails UserMailbox | Select-Object UserPrincipalName,ForwardingSmtpAddress,DeliverToMailboxAndForward
+
+
+PS - Connecting to EXO w/GDAP for GRML:
+Connect-ExchangeOnline -DelegatedOrganization "greystonemonticello.com" 
+
+Check uptime via PWSH: 
+(Get-Date) - (gcim Win32_OperatingSystem).LastBootUpTime
+Check uptime via CMD: systeminfo | find "System Boot Time"
+
+Search Event Viewer logs w/PWSH
+Get-EventLog -LogName Application -Source Outlook -EntryType Error
+
+Check for mailbox rules:
+
+Get-InboxRule -Mailbox $box | Select-Object -Property *
+
+PS kinda-sorta grepping:
+get-process -IncludeUserName | where {$_.username -match 'grover'}
+
+
+PS measuring processes per user:
+while ($true ){get-process -IncludeUserName | where {$_.username -match 'grover'} | Measure-Object ; start-sleep 4 ;clear-host}
+
+PS version of something similar to Top
+Get-Process | Sort-Object -Descending CPU | Select-Object -First 30
+
+PS- Check wifi via PWSH:
+netsh wlan show interfaces | select-string SSID
+
+########################Distro List check for user################
+$DistributionGroups = Get-DistributionGroup -ResultSize Unlimited | where {!$_.GroupType.contains("SecurityEnabled")}
+$DistributionGroups | Where-Object { (Get-DistributionGroupMember $_.Name -ResultSize Unlimited | foreach {$_.PrimarySMTPAddress}) -Contains "dpitel@7bxk5x.onmicrosoft.com"} | select DisplayName, PrimarySMTPAddress
+
+
+#######################
+Check Group memberships for AD/AAD
+
+ #Connect to AAD
+    Connect-AzureAD -Credential (Get-Credential) | Out-Null
+ 
+    #Get the user
+    $User = Get-AzureADUser -ObjectId $UserID
+ 
+    #Get user's group memberships
+    $Memberships = Get-AzureADUserMembership -ObjectId $User.ObjectId | Where-object { $_.ObjectType -eq "Group" }
+ 
+    #Export group memberships to a CSV
+    $Memberships | Select DisplayName, Mail, ObjectId | Export-Csv -LiteralPath $CSVFile -NoTypeInformation
+}
+
+
+#Read more: https://www.sharepointdiary.com/2020/09/find-all-office-365-groups-user-is-member-of-using-powershell.html#ixzz8Nxv3xZ3s
+
+
+Get-Mailbox -ResultSize Unlimited | Get-MailboxPermission | Where-Object { $_.User -eq $USER_VAR -and $_.AccessRights -eq "FullAccess" } | Select-Object Identity
+
+
+Advanced System Settings from CMD:
+SystemPropertiesPerformance
+
+
+PS get service info and start service:
+
+$ServiceName = ‘Service’
+$ServiceInfo = Get-Service -Name $ServiceName
+if ($ServiceInfo.Status -ne ‘Running’) {
+write-host ‘service is not started, starting service’
+Start-Service -Name $ServiceName -verbose
+$ServiceInfo.Refresh()
+write-host $ServiceInfo.Status
+}
+write-host ‘all done’
+
+
+PS: Manually removing Zoom when uninstaller breaks:
+$RegKey = Get-ChildItem HKLM:\SOFTWARE\Classes\Installer\Products -Recurse | Get-ItemProperty | Where-Object -Property ProductName -Match "Zoom"
+$RegKey
+$i=1; $regkey | %{ reg export $($_.pspath -split "::")[1] "$env:temp\zoom_$(get-date -format yyyy-MM-dd_HHmmss)_$i.reg"; $i++}
+Remove-Item $RegKey.PSPath -Recurse -Confirm
+
+C3 storage file path:
+\\moamc3avd.file.core.windows.net\avdprofiles
